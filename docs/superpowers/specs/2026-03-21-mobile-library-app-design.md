@@ -39,6 +39,15 @@ A Progressive Web App (PWA) for tracking book checkouts from a mobile library se
 | description | text | | AI-populated, brief synopsis |
 | ai_enriched | boolean | DEFAULT false | Whether AI metadata has been populated |
 | created_at | timestamptz | DEFAULT now() | |
+| updated_at | timestamptz | DEFAULT now() | Auto-updated via trigger on row change |
+
+### `app_settings`
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| id | uuid | PK, auto-generated | Single row |
+| reminder_email | text | NOT NULL | Email address for due/overdue reminders |
+| loan_duration_days | int | NOT NULL, DEFAULT 28 | Configurable checkout period |
 
 ### `schools`
 
@@ -46,6 +55,7 @@ A Progressive Web App (PWA) for tracking book checkouts from a mobile library se
 |---|---|---|---|
 | id | uuid | PK, auto-generated | |
 | name | text | NOT NULL, UNIQUE | Predefined list managed in Settings |
+| archived | boolean | DEFAULT false | Soft-delete to preserve checkout history |
 
 ### `checkouts`
 
@@ -59,11 +69,12 @@ A Progressive Web App (PWA) for tracking book checkouts from a mobile library se
 | checked_out_at | timestamptz | DEFAULT now() | |
 | due_at | timestamptz | NOT NULL | checked_out_at + 4 weeks |
 | returned_at | timestamptz | | NULL until returned |
-| reminder_sent | boolean | DEFAULT false | Tracks if email reminder was sent |
+| reminder_sent | boolean | DEFAULT false | Tracks if due-soon email was sent |
+| overdue_alert_sent | boolean | DEFAULT false | Tracks if overdue email was sent |
 
 ### Auth
 
-Handled by Supabase's built-in `auth.users` table. No custom roles — all authenticated users have full access to all features. Staff members are invited by sharing the app URL (QR code) and creating an account with a password.
+Handled by Supabase's built-in `auth.users` table. No custom roles — all authenticated users have full access to all features. Supabase Auth is configured as **invite-only** — new staff members must be invited by an existing user via the Settings screen (uses Supabase admin invite API). This prevents unauthorized signups from anyone who discovers the QR code URL.
 
 ## Book Availability Logic
 
@@ -82,9 +93,11 @@ A book's available copies = `total_copies - (active checkouts for that book)` wh
 
 Fallback: if the API call fails, the book is saved with `ai_enriched = false` and can be retried later.
 
+During CSV bulk import, books are enriched sequentially (one at a time) to respect API rate limits. A progress indicator shows enrichment status. If individual enrichments fail, they are skipped and can be retried from the Book Detail screen.
+
 ## Search & Filtering
 
-The catalogue search matches against: title, author, genres, themes, publisher. A single search input performs a full-text search across all these fields. Users can type things like "sci-fi", "justice", or "Orwell" and get relevant results.
+The catalogue search matches against: title, author, genres, themes, publisher. A single search input filters client-side across all these fields (performant at ~100 books). Users can type things like "sci-fi", "justice", or "Orwell" and get relevant results. All books are loaded once on page load; filtering is instant in the browser.
 
 ## Screens
 
@@ -109,6 +122,8 @@ The catalogue search matches against: title, author, genres, themes, publisher. 
 - Shows all metadata: title, author, publisher, year, genres, themes, description
 - Shows current checkout status (who has it, when due)
 - **"Check Out" button** (if available copies > 0)
+- **"Edit" button** — edit title, author, total_copies, or manually override AI metadata
+- **"Delete" button** — only enabled if no active checkouts; shows confirmation dialog; hard-deletes the book and its checkout history
 - **Checkout history** for this book
 
 ### 5. Checkout Flow
@@ -116,19 +131,21 @@ The catalogue search matches against: title, author, genres, themes, publisher. 
 - Enter borrower first name (text input)
 - Enter surname initial (single character input)
 - Select school from dropdown
-- Auto-calculated due date displayed (today + 4 weeks)
+- Auto-calculated due date displayed (today + configured loan duration, default 28 days)
 - Confirm button
 
 ### 6. Checkouts List
 - All active checkouts, sorted by due date (most urgent first)
 - Each row: book title, borrower, school, due date, status badge
-- **"Return" button** on each row to check the book back in
+- **"Return" button** on each row — shows confirmation dialog before marking as returned
 - Toggle to show returned/historical checkouts
 
 ### 7. Settings
-- **Schools:** Add/edit/remove schools from the predefined list
-- **CSV Import:** Upload a CSV file to bulk-add books (columns: title, author, copies)
-- **Staff:** View current staff members (managed via Supabase auth)
+- **Schools:** Add/edit schools; archive (soft-delete) schools to preserve checkout history
+- **CSV Import:** Upload a CSV file to bulk-add books (columns: title, author, copies). Duplicates (matched by title + author, case-insensitive) are skipped with a summary shown after import.
+- **Staff:** View current staff members, invite new staff via email (Supabase invite API)
+- **Reminder Email:** Configure which email address receives due/overdue notifications
+- **Loan Duration:** Configure default loan period (defaults to 28 days)
 
 ### Navigation
 - Bottom tab bar with 4 tabs: Home, Catalogue, Checkouts, Settings
@@ -143,9 +160,9 @@ The catalogue search matches against: title, author, genres, themes, publisher. 
 ### Email
 - A Supabase Edge Function runs daily (via pg_cron or Supabase scheduled function)
 - Checks for books where `due_at` is within 3 days AND `reminder_sent = false`
-- Sends an email to the library manager's email address listing all books due soon
+- Sends an email to the address configured in `app_settings.reminder_email` listing all books due soon
 - Sets `reminder_sent = true` after sending
-- Also sends a separate alert for any newly overdue books
+- Also checks for books where `due_at < now()` AND `overdue_alert_sent = false`, sends an overdue alert, and sets `overdue_alert_sent = true`
 
 ## CSV Import Format
 
@@ -163,7 +180,7 @@ To Kill a Mockingbird,Harper Lee,2
 
 ## PWA Configuration
 
-- Service worker for offline capability (view cached catalogue)
+- Service worker for offline capability (view cached catalogue). Checkout and return operations require network connectivity — an offline message is shown if attempted without connection.
 - Web app manifest for "Add to Home Screen"
 - App icon and splash screen
 - Responsive design optimized for mobile (but works on desktop too)
