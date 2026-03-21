@@ -1,3 +1,250 @@
+"use client";
+
+import { useState, useRef } from "react";
+import { useSchools } from "@/lib/hooks/use-schools";
+import { useSettings } from "@/lib/hooks/use-settings";
+import { useBooks } from "@/lib/hooks/use-books";
+import { parseBooksCsv } from "@/lib/csv";
+import { createClient } from "@/lib/supabase/client";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+
 export default function SettingsPage() {
-  return <h1 className="text-xl font-bold">Settings</h1>;
+  const { schools, addSchool, updateSchool, archiveSchool } = useSchools();
+  const { settings, updateSettings } = useSettings();
+  const { books, addBook } = useBooks();
+  const supabase = createClient();
+
+  // Schools
+  const [newSchool, setNewSchool] = useState("");
+  const [editingSchoolId, setEditingSchoolId] = useState<string | null>(null);
+  const [editSchoolName, setEditSchoolName] = useState("");
+  const [archiveId, setArchiveId] = useState<string | null>(null);
+
+  // CSV import
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ added: number; skipped: number; errors: string[] } | null>(null);
+
+  // Settings
+  const [email, setEmail] = useState(settings?.reminder_email ?? "");
+  const [loanDays, setLoanDays] = useState(String(settings?.loan_duration_days ?? 28));
+  const [saving, setSaving] = useState(false);
+
+  // Staff invite
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviting, setInviting] = useState(false);
+  const [inviteResult, setInviteResult] = useState("");
+
+  async function handleAddSchool(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newSchool.trim()) return;
+    await addSchool(newSchool.trim());
+    setNewSchool("");
+  }
+
+  async function handleSaveSchoolEdit() {
+    if (editingSchoolId && editSchoolName.trim()) {
+      await updateSchool(editingSchoolId, editSchoolName.trim());
+      setEditingSchoolId(null);
+    }
+  }
+
+  async function handleArchiveSchool() {
+    if (archiveId) {
+      await archiveSchool(archiveId);
+      setArchiveId(null);
+    }
+  }
+
+  async function handleCsvImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    setImportResult(null);
+
+    const text = await file.text();
+    const { books: parsedBooks, errors } = parseBooksCsv(text);
+
+    let added = 0;
+    let skipped = 0;
+
+    for (const pb of parsedBooks) {
+      const exists = books.some(
+        (b) => b.title.toLowerCase() === pb.title.toLowerCase() && b.author.toLowerCase() === pb.author.toLowerCase()
+      );
+      if (exists) {
+        skipped++;
+        continue;
+      }
+      const { error } = await addBook(pb);
+      if (!error) added++;
+      else errors.push(`Failed to add "${pb.title}": ${error.message}`);
+    }
+
+    setImportResult({ added, skipped, errors });
+    setImporting(false);
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
+  async function handleSaveSettings() {
+    setSaving(true);
+    await updateSettings({
+      reminder_email: email.trim(),
+      loan_duration_days: parseInt(loanDays) || 28,
+    });
+    setSaving(false);
+  }
+
+  async function handleInviteStaff(e: React.FormEvent) {
+    e.preventDefault();
+    if (!inviteEmail.trim()) return;
+    setInviting(true);
+    setInviteResult("");
+    try {
+      const { error } = await supabase.auth.admin.inviteUserByEmail(inviteEmail.trim());
+      if (error) {
+        setInviteResult(`Error: ${error.message}`);
+      } else {
+        setInviteResult(`Invitation sent to ${inviteEmail.trim()}`);
+        setInviteEmail("");
+      }
+    } catch {
+      setInviteResult("Error: Admin API not available. Invite users from the Supabase Dashboard.");
+    }
+    setInviting(false);
+  }
+
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+    window.location.href = "/login";
+  }
+
+  return (
+    <div className="space-y-8">
+      <h1 className="text-xl font-bold">Settings</h1>
+
+      {/* Schools */}
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">Schools</h2>
+        <form onSubmit={handleAddSchool} className="flex gap-2">
+          <input
+            value={newSchool}
+            onChange={(e) => setNewSchool(e.target.value)}
+            placeholder="Add school name"
+            className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 placeholder-slate-500 focus:border-blue-500 focus:outline-none"
+          />
+          <button type="submit" className="bg-blue-600 text-white rounded-lg px-3 py-2 hover:bg-blue-700">Add</button>
+        </form>
+        <div className="space-y-1">
+          {schools.map((s) => (
+            <div key={s.id} className="flex items-center justify-between bg-slate-900 border border-slate-800 rounded-lg p-2">
+              {editingSchoolId === s.id ? (
+                <div className="flex gap-2 flex-1">
+                  <input
+                    value={editSchoolName}
+                    onChange={(e) => setEditSchoolName(e.target.value)}
+                    className="flex-1 rounded border border-slate-700 bg-slate-800 px-2 py-1 text-sm text-slate-100 focus:border-blue-500 focus:outline-none"
+                  />
+                  <button onClick={handleSaveSchoolEdit} className="text-xs text-blue-400">Save</button>
+                  <button onClick={() => setEditingSchoolId(null)} className="text-xs text-slate-500">Cancel</button>
+                </div>
+              ) : (
+                <>
+                  <span className="text-sm">{s.name}</span>
+                  <div className="flex gap-2">
+                    <button onClick={() => { setEditingSchoolId(s.id); setEditSchoolName(s.name); }} className="text-xs text-slate-400 hover:text-slate-200">Edit</button>
+                    <button onClick={() => setArchiveId(s.id)} className="text-xs text-red-400 hover:text-red-300">Remove</button>
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
+          {schools.length === 0 && <p className="text-slate-500 text-sm">No schools added yet.</p>}
+        </div>
+      </section>
+
+      {/* CSV Import */}
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">Import Books (CSV)</h2>
+        <p className="text-slate-500 text-sm">CSV format: title, author, copies (copies is optional, defaults to 1)</p>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".csv"
+          onChange={handleCsvImport}
+          disabled={importing}
+          className="text-sm text-slate-400 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-600 file:px-3 file:py-1.5 file:text-white file:cursor-pointer hover:file:bg-blue-700"
+        />
+        {importing && <p className="text-slate-400 text-sm">Importing...</p>}
+        {importResult && (
+          <div className="bg-slate-900 border border-slate-800 rounded-lg p-3 text-sm space-y-1">
+            <p className="text-emerald-400">{importResult.added} books added</p>
+            {importResult.skipped > 0 && <p className="text-amber-400">{importResult.skipped} duplicates skipped</p>}
+            {importResult.errors.map((err, i) => <p key={i} className="text-red-400">{err}</p>)}
+          </div>
+        )}
+      </section>
+
+      {/* Reminder & Loan Settings */}
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">Notifications & Loan</h2>
+        <div>
+          <label className="block text-sm text-slate-400 mb-1">Reminder email</label>
+          <input
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            type="email"
+            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 focus:border-blue-500 focus:outline-none"
+          />
+        </div>
+        <div>
+          <label className="block text-sm text-slate-400 mb-1">Loan duration (days)</label>
+          <input
+            value={loanDays}
+            onChange={(e) => setLoanDays(e.target.value)}
+            type="number"
+            min="1"
+            className="w-24 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 focus:border-blue-500 focus:outline-none"
+          />
+        </div>
+        <button onClick={handleSaveSettings} disabled={saving} className="bg-blue-600 text-white rounded-lg px-4 py-2 hover:bg-blue-700 disabled:opacity-50">
+          {saving ? "Saving..." : "Save Settings"}
+        </button>
+      </section>
+
+      {/* Staff Management */}
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">Staff</h2>
+        <form onSubmit={handleInviteStaff} className="flex gap-2">
+          <input
+            value={inviteEmail}
+            onChange={(e) => setInviteEmail(e.target.value)}
+            type="email"
+            placeholder="Invite staff by email"
+            className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 placeholder-slate-500 focus:border-blue-500 focus:outline-none"
+          />
+          <button type="submit" disabled={inviting} className="bg-blue-600 text-white rounded-lg px-3 py-2 hover:bg-blue-700 disabled:opacity-50">
+            {inviting ? "..." : "Invite"}
+          </button>
+        </form>
+        {inviteResult && <p className={`text-sm ${inviteResult.startsWith("Error") ? "text-red-400" : "text-emerald-400"}`}>{inviteResult}</p>}
+      </section>
+
+      {/* Sign Out */}
+      <section>
+        <button onClick={handleSignOut} className="text-red-400 text-sm hover:text-red-300">
+          Sign Out
+        </button>
+      </section>
+
+      <ConfirmDialog
+        open={!!archiveId}
+        title="Remove School"
+        message="This school will be archived. Existing checkout records will be preserved."
+        confirmLabel="Remove"
+        onConfirm={handleArchiveSchool}
+        onCancel={() => setArchiveId(null)}
+      />
+    </div>
+  );
 }
