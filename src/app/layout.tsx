@@ -4,6 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Mobile Library",
   description: "Track book checkouts for your mobile library",
+  manifest: "/manifest.json",
 };
 
 export const viewport: Viewport = {
