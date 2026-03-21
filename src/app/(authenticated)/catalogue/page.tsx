@@ -34,7 +34,7 @@ export default function CataloguePage() {
     e.preventDefault();
     setAddError("");
     setAdding(true);
-    const { error } = await addBook({
+    const { data, error } = await addBook({
       title: newTitle.trim(),
       author: newAuthor.trim(),
       total_copies: parseInt(newCopies) || 1,
@@ -43,6 +43,17 @@ export default function CataloguePage() {
     if (error) {
       setAddError(error.message);
       return;
+    }
+    // Trigger AI enrichment (non-blocking)
+    if (data) {
+      fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/enrich-book`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ book_id: data.id }),
+      }).catch(() => {});
     }
     setNewTitle("");
     setNewAuthor("");
