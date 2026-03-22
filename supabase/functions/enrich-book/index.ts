@@ -5,11 +5,24 @@ const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
 Deno.serve(async (req) => {
+  // Handle CORS preflight
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
   try {
     const { book_id } = await req.json();
     if (!book_id) {
-      return new Response(JSON.stringify({ error: "book_id required" }), { status: 400 });
+      return new Response(JSON.stringify({ error: "book_id required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -21,7 +34,10 @@ Deno.serve(async (req) => {
       .single();
 
     if (fetchError || !book) {
-      return new Response(JSON.stringify({ error: "Book not found" }), { status: 404 });
+      return new Response(JSON.stringify({ error: "Book not found" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -56,7 +72,10 @@ Respond ONLY with valid JSON, no other text.`,
     const content = aiResult.content?.[0]?.text;
 
     if (!content) {
-      return new Response(JSON.stringify({ error: "No AI response" }), { status: 500 });
+      return new Response(JSON.stringify({ error: "No AI response" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const metadata = JSON.parse(content);
@@ -74,11 +93,20 @@ Respond ONLY with valid JSON, no other text.`,
       .eq("id", book_id);
 
     if (updateError) {
-      return new Response(JSON.stringify({ error: updateError.message }), { status: 500 });
+      return new Response(JSON.stringify({ error: updateError.message }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    return new Response(JSON.stringify({ success: true, metadata }), { status: 200 });
+    return new Response(JSON.stringify({ success: true, metadata }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (error) {
-    return new Response(JSON.stringify({ error: String(error) }), { status: 500 });
+    return new Response(JSON.stringify({ error: String(error) }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
