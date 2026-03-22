@@ -7,7 +7,7 @@ import { useBooks } from "@/lib/hooks/use-books";
 import { parseBooksCsv, parseBooksXlsx } from "@/lib/csv";
 import { createClient } from "@/lib/supabase/client";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { enrichAllBooks } from "./actions";
+import { enrichAllBooks, notifyUserApproved } from "./actions";
 import { useIsAdmin } from "@/lib/admin-context";
 import { useRouter } from "next/navigation";
 
@@ -68,10 +68,15 @@ export default function SettingsPage() {
 
   async function handleApprove(approvalId: string) {
     setApprovingId(approvalId);
+    const pending = pendingUsers.find((u) => u.id === approvalId);
     await supabase
       .from("user_approvals")
       .update({ approved: true, approved_at: new Date().toISOString() } as any)
       .eq("id", approvalId);
+    // Notify the user they've been approved
+    if (pending?.email) {
+      await notifyUserApproved(pending.email);
+    }
     await fetchPendingApprovals();
     await fetchApprovedUsers();
     setApprovingId(null);

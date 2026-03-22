@@ -21,6 +21,23 @@ export async function enrichOneBook(bookId: string): Promise<{ success: boolean;
   }
 }
 
+export async function notifyUserApproved(userEmail: string): Promise<{ success: boolean }> {
+  try {
+    const url = `${(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim()}/functions/v1/notify-approved`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim()}`,
+      },
+      body: JSON.stringify({ email: userEmail }),
+    });
+    return { success: res.ok };
+  } catch {
+    return { success: false };
+  }
+}
+
 export async function enrichAllBooks(): Promise<{
   enriched: number;
   errors: number;
