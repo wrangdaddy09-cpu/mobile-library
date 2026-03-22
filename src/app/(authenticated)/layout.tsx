@@ -18,7 +18,7 @@ export default async function AuthenticatedLayout({
   // Check if this user has an approval row
   const { data: approval } = await supabase
     .from("user_approvals")
-    .select("approved")
+    .select("approved, is_admin")
     .eq("user_id", user.id)
     .single();
 
@@ -27,8 +27,8 @@ export default async function AuthenticatedLayout({
     redirect("/pending");
   }
 
-  // Admin = user with no approval row (original/pre-existing user)
-  const isAdmin = !approval;
+  // Admin = user with no approval row (original user) OR is_admin flag set
+  const isAdmin = !approval || !!(approval as any).is_admin;
 
   return (
     <AdminProvider isAdmin={isAdmin}>

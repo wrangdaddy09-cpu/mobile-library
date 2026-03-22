@@ -18,6 +18,12 @@ interface PendingUser {
   requested_at: string;
 }
 
+interface ApprovedUser {
+  id: string;
+  email: string;
+  is_admin: boolean;
+}
+
 export default function SettingsPage() {
   const isAdmin = useIsAdmin();
   const router = useRouter();
@@ -34,10 +40,12 @@ export default function SettingsPage() {
 
   // Pending approvals
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
+  const [approvedUsers, setApprovedUsers] = useState<ApprovedUser[]>([]);
   const [approvingId, setApprovingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchPendingApprovals();
+    fetchApprovedUsers();
   }, []);
 
   async function fetchPendingApprovals() {
@@ -49,6 +57,15 @@ export default function SettingsPage() {
     setPendingUsers((data as PendingUser[]) ?? []);
   }
 
+  async function fetchApprovedUsers() {
+    const { data } = await supabase
+      .from("user_approvals")
+      .select("id, email, is_admin")
+      .eq("approved", true)
+      .order("email", { ascending: true });
+    setApprovedUsers((data as ApprovedUser[]) ?? []);
+  }
+
   async function handleApprove(approvalId: string) {
     setApprovingId(approvalId);
     await supabase
@@ -56,6 +73,7 @@ export default function SettingsPage() {
       .update({ approved: true, approved_at: new Date().toISOString() } as any)
       .eq("id", approvalId);
     await fetchPendingApprovals();
+    await fetchApprovedUsers();
     setApprovingId(null);
   }
 
@@ -64,6 +82,19 @@ export default function SettingsPage() {
     await supabase.from("user_approvals").delete().eq("id", approvalId);
     await fetchPendingApprovals();
     setApprovingId(null);
+  }
+
+  async function handleToggleAdmin(approvalId: string, currentValue: boolean) {
+    await supabase
+      .from("user_approvals")
+      .update({ is_admin: !currentValue } as any)
+      .eq("id", approvalId);
+    await fetchApprovedUsers();
+  }
+
+  async function handleRemoveUser(approvalId: string) {
+    await supabase.from("user_approvals").delete().eq("id", approvalId);
+    await fetchApprovedUsers();
   }
 
   // Schools
@@ -233,6 +264,46 @@ export default function SettingsPage() {
                     className="text-xs bg-red-600 text-white rounded px-2 py-1 hover:bg-red-700 disabled:opacity-50"
                   >
                     Reject
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Approved Users */}
+      {approvedUsers.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold">Approved Users</h2>
+          <div className="space-y-2">
+            {approvedUsers.map((u) => (
+              <div
+                key={u.id}
+                className="flex items-center justify-between bg-slate-900 border border-slate-800 rounded-lg p-3"
+              >
+                <div>
+                  <p className="text-sm font-medium">{u.email}</p>
+                  <p className="text-xs text-slate-500">
+                    {u.is_admin ? "Admin" : "Teacher"}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleToggleAdmin(u.id, u.is_admin)}
+                    className={`text-xs rounded px-2 py-1 ${
+                      u.is_admin
+                        ? "bg-amber-600 text-white hover:bg-amber-700"
+                        : "bg-blue-600 text-white hover:bg-blue-700"
+                    }`}
+                  >
+                    {u.is_admin ? "Remove Admin" : "Make Admin"}
+                  </button>
+                  <button
+                    onClick={() => handleRemoveUser(u.id)}
+                    className="text-xs bg-red-600 text-white rounded px-2 py-1 hover:bg-red-700"
+                  >
+                    Remove
                   </button>
                 </div>
               </div>
