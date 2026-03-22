@@ -27,7 +27,7 @@ export function useSchools() {
   async function addSchool(name: string) {
     const { data, error } = await supabase
       .from("schools")
-      .insert({ name } as any)
+      .insert({ name })
       .select()
       .single();
     if (!error && data) {
@@ -40,7 +40,7 @@ export function useSchools() {
   async function updateSchool(id: string, name: string) {
     const { data, error } = await supabase
       .from("schools")
-      .update({ name } as any)
+      .update({ name })
       .eq("id", id)
       .select()
       .single();
@@ -53,7 +53,7 @@ export function useSchools() {
   async function archiveSchool(id: string) {
     const { error } = await supabase
       .from("schools")
-      .update({ archived: true } as any)
+      .update({ archived: true })
       .eq("id", id);
     if (!error) {
       setSchools((prev) => prev.filter((s) => s.id !== id));

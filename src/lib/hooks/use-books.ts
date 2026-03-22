@@ -26,7 +26,7 @@ export function useBooks() {
   async function addBook(book: { title: string; author: string; total_copies?: number }) {
     const { data, error } = await supabase
       .from("books")
-      .insert(book as any)
+      .insert(book)
       .select()
       .single();
     if (!error && data) {
@@ -39,7 +39,7 @@ export function useBooks() {
   async function updateBook(id: string, updates: Partial<Book>) {
     const { data, error } = await supabase
       .from("books")
-      .update(updates as any)
+      .update(updates)
       .eq("id", id)
       .select()
       .single();

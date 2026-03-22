@@ -27,7 +27,7 @@ export function useSettings() {
     if (!settings) return { error: new Error("No settings loaded") };
     const { data, error } = await supabase
       .from("app_settings")
-      .update(updates as any)
+      .update(updates)
       .eq("id", settings.id)
       .select()
       .single();
