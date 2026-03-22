@@ -114,7 +114,7 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
         <div className="space-y-2">
           <h1 className="text-xl font-bold">{book.title}</h1>
           <p className="text-slate-400">{book.author}</p>
-          {book.publisher && <p className="text-slate-500 text-sm">Publisher: {book.publisher}</p>}
+          {book.publisher && book.publisher.toLowerCase() !== "unknown" && <p className="text-slate-500 text-sm">Publisher: {book.publisher}</p>}
           {book.year_published && <p className="text-slate-500 text-sm">Year: {book.year_published}</p>}
           {book.genres?.length > 0 && (
             <div className="flex flex-wrap gap-1">

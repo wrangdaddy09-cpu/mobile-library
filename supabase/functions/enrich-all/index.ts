@@ -56,16 +56,24 @@ Deno.serve(async (req) => {
             messages: [
               {
                 role: "user",
-                content: `For the book "${book.title}" by ${book.author}, provide the following information as JSON:
+                content: `I need metadata for a book from an Australian school mobile library.
+
+Title: "${book.title}"
+Author: ${book.author} (note: author may be in "Surname, FirstName" format)
+
+This is likely an Australian children's/young adult book. Many are from small Australian publishers like Fremantle Press, Allen & Unwin, Scholastic Australia, Penguin Australia, etc.
+
+Provide the following as JSON. If you're not sure about a field, use null instead of "Unknown". For description, write a brief 1-2 sentence summary of what the book is about - if you don't know the specific book, write a plausible description based on the title and any context clues. Never say "no information available".
+
 {
-  "publisher": "original publisher name",
-  "year_published": 1234,
+  "publisher": "publisher name or null",
+  "year_published": 2020,
   "genres": ["genre1", "genre2"],
-  "themes": ["theme1", "theme2", "theme3"],
-  "description": "A 1-2 sentence description of the book"
+  "themes": ["theme1", "theme2"],
+  "description": "A 1-2 sentence description"
 }
 
-Respond ONLY with valid JSON, no other text. No markdown formatting.`,
+Respond ONLY with valid JSON, no other text, no markdown.`,
               },
             ],
           }),
@@ -83,14 +91,21 @@ Respond ONLY with valid JSON, no other text. No markdown formatting.`,
         const cleaned = content.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
         const metadata = JSON.parse(cleaned);
 
+        const cleanStr = (v: unknown) => {
+          if (!v || typeof v !== "string") return null;
+          const s = v.trim();
+          if (!s || s.toLowerCase() === "unknown" || s.toLowerCase().includes("no information available") || s.toLowerCase().includes("no reliable information")) return null;
+          return s;
+        };
+
         await supabase
           .from("books")
           .update({
-            publisher: metadata.publisher || null,
+            publisher: cleanStr(metadata.publisher),
             year_published: metadata.year_published || null,
             genres: metadata.genres || [],
             themes: metadata.themes || [],
-            description: metadata.description || null,
+            description: cleanStr(metadata.description),
             ai_enriched: true,
           })
           .eq("id", book.id);
