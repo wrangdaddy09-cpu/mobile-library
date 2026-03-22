@@ -14,6 +14,20 @@ export default async function AuthenticatedLayout({
     redirect("/login");
   }
 
+  // Check if this user has an approval row
+  const { data: approval } = await supabase
+    .from("user_approvals")
+    .select("approved")
+    .eq("user_id", user.id)
+    .single();
+
+  // If an approval row exists and the user is not approved, redirect to pending
+  if (approval && !approval.approved) {
+    redirect("/pending");
+  }
+
+  // If no row exists (admin/pre-existing user) or approved === true, let them through
+
   return (
     <div className="pb-16">
       <main className="max-w-lg mx-auto px-4 py-4">{children}</main>

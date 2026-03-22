@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useSchools } from "@/lib/hooks/use-schools";
 import { useSettings } from "@/lib/hooks/use-settings";
 import { useBooks } from "@/lib/hooks/use-books";
@@ -8,11 +8,52 @@ import { parseBooksCsv } from "@/lib/csv";
 import { createClient } from "@/lib/supabase/client";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 
+interface PendingUser {
+  id: string;
+  user_id: string;
+  email: string;
+  requested_at: string;
+}
+
 export default function SettingsPage() {
   const { schools, addSchool, updateSchool, archiveSchool } = useSchools();
   const { settings, updateSettings } = useSettings();
   const { books, addBook } = useBooks();
   const supabase = createClient();
+
+  // Pending approvals
+  const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchPendingApprovals();
+  }, []);
+
+  async function fetchPendingApprovals() {
+    const { data } = await supabase
+      .from("user_approvals")
+      .select("id, user_id, email, requested_at")
+      .eq("approved", false)
+      .order("requested_at", { ascending: true });
+    setPendingUsers((data as PendingUser[]) ?? []);
+  }
+
+  async function handleApprove(approvalId: string) {
+    setApprovingId(approvalId);
+    await supabase
+      .from("user_approvals")
+      .update({ approved: true, approved_at: new Date().toISOString() } as any)
+      .eq("id", approvalId);
+    await fetchPendingApprovals();
+    setApprovingId(null);
+  }
+
+  async function handleReject(approvalId: string) {
+    setApprovingId(approvalId);
+    await supabase.from("user_approvals").delete().eq("id", approvalId);
+    await fetchPendingApprovals();
+    setApprovingId(null);
+  }
 
   // Schools
   const [newSchool, setNewSchool] = useState("");
@@ -122,6 +163,45 @@ export default function SettingsPage() {
   return (
     <div className="space-y-8">
       <h1 className="text-xl font-bold">Settings</h1>
+
+      {/* Pending Approvals */}
+      {pendingUsers.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold">Pending Approvals</h2>
+          <div className="space-y-2">
+            {pendingUsers.map((u) => (
+              <div
+                key={u.id}
+                className="flex items-center justify-between bg-slate-900 border border-slate-800 rounded-lg p-3"
+              >
+                <div>
+                  <p className="text-sm font-medium">{u.email}</p>
+                  <p className="text-xs text-slate-500">
+                    Requested{" "}
+                    {new Date(u.requested_at).toLocaleDateString()}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleApprove(u.id)}
+                    disabled={approvingId === u.id}
+                    className="text-xs bg-emerald-600 text-white rounded px-2 py-1 hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    Approve
+                  </button>
+                  <button
+                    onClick={() => handleReject(u.id)}
+                    disabled={approvingId === u.id}
+                    className="text-xs bg-red-600 text-white rounded px-2 py-1 hover:bg-red-700 disabled:opacity-50"
+                  >
+                    Reject
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Schools */}
       <section className="space-y-3">
