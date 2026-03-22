@@ -77,35 +77,51 @@ export function parseBooksXlsx(buffer: ArrayBuffer): ParseResult {
     const sheetName = workbook.SheetNames[0];
     if (!sheetName) return { books, errors: ["Excel file has no sheets"] };
 
-    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets[sheetName]);
-    if (rows.length === 0) return { books, errors: ["Excel sheet is empty"] };
+    // Read as raw rows (array of arrays) so we can find the real header row
+    const rawRows = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets[sheetName], { header: 1 });
+    if (rawRows.length === 0) return { books, errors: ["Excel sheet is empty"] };
 
-    // Map column names from the spreadsheet to our fields
-    const firstRow = rows[0];
-    const keys = Object.keys(firstRow);
-    const columnMap: Record<string, string> = {};
-    keys.forEach((k) => {
-      const field = matchColumn(k);
-      if (field) columnMap[field] = k;
-    });
+    // Find the header row — the first row where we can match both "title" and "author"
+    let headerRowIdx = -1;
+    let columnMap: Record<string, number> = {};
 
-    if (!columnMap.title || !columnMap.author) {
-      return { books, errors: ["Excel sheet must have 'title' and 'author' columns"] };
+    for (let i = 0; i < Math.min(rawRows.length, 10); i++) {
+      const row = rawRows[i] as unknown[];
+      if (!row) continue;
+      const tempMap: Record<string, number> = {};
+      row.forEach((cell, colIdx) => {
+        if (cell == null) return;
+        const field = matchColumn(String(cell));
+        if (field) tempMap[field] = colIdx;
+      });
+      if (tempMap.title !== undefined && tempMap.author !== undefined) {
+        headerRowIdx = i;
+        columnMap = tempMap;
+        break;
+      }
     }
 
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i];
+    if (headerRowIdx === -1) {
+      return { books, errors: ["Could not find 'title' and 'author' columns in the first 10 rows"] };
+    }
+
+    // Process data rows after the header
+    for (let i = headerRowIdx + 1; i < rawRows.length; i++) {
+      const row = rawRows[i] as unknown[];
+      if (!row) continue;
+
       const title = String(row[columnMap.title] ?? "").trim();
       const author = String(row[columnMap.author] ?? "").trim();
-      const copies = columnMap.copies ? parseInt(String(row[columnMap.copies]), 10) : 1;
-      const publisher = columnMap.publisher ? String(row[columnMap.publisher] ?? "").trim() || undefined : undefined;
+      const copies = columnMap.copies !== undefined ? parseInt(String(row[columnMap.copies] ?? ""), 10) : 1;
+      const publisher = columnMap.publisher !== undefined ? String(row[columnMap.publisher] ?? "").trim() || undefined : undefined;
 
+      if (!title && !author) continue; // skip fully empty rows
       if (!title) {
-        errors.push(`Row ${i + 2}: missing title`);
+        errors.push(`Row ${i + 1}: missing title`);
         continue;
       }
       if (!author) {
-        errors.push(`Row ${i + 2}: missing author`);
+        errors.push(`Row ${i + 1}: missing author`);
         continue;
       }
 
