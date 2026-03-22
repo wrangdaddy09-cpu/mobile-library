@@ -18,7 +18,7 @@ interface PendingUser {
 export default function SettingsPage() {
   const { schools, addSchool, updateSchool, archiveSchool } = useSchools();
   const { settings, updateSettings } = useSettings();
-  const { books, addBook } = useBooks();
+  const { books, addBook, fetchBooks } = useBooks();
   const supabase = createClient();
 
   // Pending approvals
@@ -70,6 +70,10 @@ export default function SettingsPage() {
   const [email, setEmail] = useState(settings?.reminder_email ?? "");
   const [loanDays, setLoanDays] = useState(String(settings?.loan_duration_days ?? 28));
   const [saving, setSaving] = useState(false);
+
+  // AI Enrichment
+  const [enriching, setEnriching] = useState(false);
+  const [enrichProgress, setEnrichProgress] = useState<{ done: number; total: number; errors: number } | null>(null);
 
   // Staff invite
   const [inviteEmail, setInviteEmail] = useState("");
@@ -137,6 +141,41 @@ export default function SettingsPage() {
     setImportResult({ added, skipped, errors });
     setImporting(false);
     if (fileRef.current) fileRef.current.value = "";
+  }
+
+  async function handleEnrichAll() {
+    const unenriched = books.filter((b) => !b.ai_enriched);
+    if (unenriched.length === 0) {
+      setEnrichProgress({ done: 0, total: 0, errors: 0 });
+      return;
+    }
+    setEnriching(true);
+    setEnrichProgress({ done: 0, total: unenriched.length, errors: 0 });
+
+    let done = 0;
+    let errors = 0;
+
+    for (const book of unenriched) {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/enrich-book`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({ book_id: book.id }),
+        });
+        if (!res.ok) errors++;
+      } catch {
+        errors++;
+      }
+      done++;
+      setEnrichProgress({ done, total: unenriched.length, errors });
+    }
+
+    setEnriching(false);
+    // Refresh books to pick up enriched data
+    fetchBooks();
   }
 
   async function handleSaveSettings() {
@@ -273,6 +312,47 @@ export default function SettingsPage() {
             <p className="text-emerald-400">{importResult.added} books added</p>
             {importResult.skipped > 0 && <p className="text-amber-400">{importResult.skipped} duplicates skipped</p>}
             {importResult.errors.map((err, i) => <p key={i} className="text-red-400">{err}</p>)}
+          </div>
+        )}
+      </section>
+
+      {/* AI Enrichment */}
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">AI Book Enrichment</h2>
+        <p className="text-slate-500 text-sm">
+          Use AI to add genres, themes, descriptions, and publisher info to books that haven&apos;t been enriched yet.
+          ({books.filter((b) => !b.ai_enriched).length} of {books.length} books need enrichment)
+        </p>
+        <button
+          onClick={handleEnrichAll}
+          disabled={enriching || books.filter((b) => !b.ai_enriched).length === 0}
+          className="bg-purple-600 text-white rounded-lg px-4 py-2 hover:bg-purple-700 disabled:opacity-50"
+        >
+          {enriching ? "Enriching..." : "Enrich All Books"}
+        </button>
+        {enrichProgress && (
+          <div className="bg-slate-900 border border-slate-800 rounded-lg p-3 text-sm space-y-2">
+            {enrichProgress.total === 0 ? (
+              <p className="text-emerald-400">All books are already enriched!</p>
+            ) : (
+              <>
+                <div className="flex justify-between text-slate-400">
+                  <span>Progress: {enrichProgress.done} / {enrichProgress.total}</span>
+                  {enrichProgress.errors > 0 && <span className="text-red-400">{enrichProgress.errors} errors</span>}
+                </div>
+                <div className="w-full bg-slate-700 rounded-full h-2">
+                  <div
+                    className="bg-purple-500 h-2 rounded-full transition-all"
+                    style={{ width: `${(enrichProgress.done / enrichProgress.total) * 100}%` }}
+                  />
+                </div>
+                {enrichProgress.done === enrichProgress.total && (
+                  <p className="text-emerald-400">
+                    Done! {enrichProgress.done - enrichProgress.errors} books enriched successfully.
+                  </p>
+                )}
+              </>
+            )}
           </div>
         )}
       </section>
