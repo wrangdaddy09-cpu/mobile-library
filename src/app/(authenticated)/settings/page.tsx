@@ -73,7 +73,7 @@ export default function SettingsPage() {
 
   // AI Enrichment
   const [enriching, setEnriching] = useState(false);
-  const [enrichProgress, setEnrichProgress] = useState<{ done: number; total: number; errors: number } | null>(null);
+  const [enrichProgress, setEnrichProgress] = useState<{ done: number; total: number; errors: number; firstError?: string } | null>(null);
 
   // Staff invite
   const [inviteEmail, setInviteEmail] = useState("");
@@ -155,6 +155,8 @@ export default function SettingsPage() {
     let done = 0;
     let errors = 0;
 
+    let firstError: string | undefined;
+
     for (const book of unenriched) {
       try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/enrich-book`, {
@@ -165,12 +167,19 @@ export default function SettingsPage() {
           },
           body: JSON.stringify({ book_id: book.id }),
         });
-        if (!res.ok) errors++;
-      } catch {
+        if (!res.ok) {
+          errors++;
+          if (!firstError) {
+            const body = await res.text();
+            firstError = `${res.status}: ${body}`;
+          }
+        }
+      } catch (err) {
         errors++;
+        if (!firstError) firstError = String(err);
       }
       done++;
-      setEnrichProgress({ done, total: unenriched.length, errors });
+      setEnrichProgress({ done, total: unenriched.length, errors, firstError });
     }
 
     setEnriching(false);
@@ -346,6 +355,9 @@ export default function SettingsPage() {
                     style={{ width: `${(enrichProgress.done / enrichProgress.total) * 100}%` }}
                   />
                 </div>
+                {enrichProgress.firstError && (
+                  <p className="text-red-400 break-all">Error: {enrichProgress.firstError}</p>
+                )}
                 {enrichProgress.done === enrichProgress.total && (
                   <p className="text-emerald-400">
                     Done! {enrichProgress.done - enrichProgress.errors} books enriched successfully.
