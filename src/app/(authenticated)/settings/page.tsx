@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useSchools } from "@/lib/hooks/use-schools";
 import { useSettings } from "@/lib/hooks/use-settings";
 import { useBooks } from "@/lib/hooks/use-books";
-import { parseBooksCsv } from "@/lib/csv";
+import { parseBooksCsv, parseBooksXlsx } from "@/lib/csv";
 import { createClient } from "@/lib/supabase/client";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 
@@ -103,8 +103,20 @@ export default function SettingsPage() {
     setImporting(true);
     setImportResult(null);
 
-    const text = await file.text();
-    const { books: parsedBooks, errors } = parseBooksCsv(text);
+    let parsedBooks;
+    let errors: string[];
+
+    if (file.name.endsWith(".xlsx") || file.name.endsWith(".xls")) {
+      const buffer = await file.arrayBuffer();
+      const result = parseBooksXlsx(buffer);
+      parsedBooks = result.books;
+      errors = result.errors;
+    } else {
+      const text = await file.text();
+      const result = parseBooksCsv(text);
+      parsedBooks = result.books;
+      errors = result.errors;
+    }
 
     let added = 0;
     let skipped = 0;
@@ -245,12 +257,12 @@ export default function SettingsPage() {
 
       {/* CSV Import */}
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Import Books (CSV)</h2>
-        <p className="text-slate-500 text-sm">CSV format: title, author, copies (copies is optional, defaults to 1)</p>
+        <h2 className="text-lg font-semibold">Import Books</h2>
+        <p className="text-slate-500 text-sm">Upload a CSV or Excel (.xlsx) file with columns: title, author, copies (copies is optional, defaults to 1)</p>
         <input
           ref={fileRef}
           type="file"
-          accept=".csv"
+          accept=".csv,.xlsx,.xls"
           onChange={handleCsvImport}
           disabled={importing}
           className="text-sm text-slate-400 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-600 file:px-3 file:py-1.5 file:text-white file:cursor-pointer hover:file:bg-blue-700"
