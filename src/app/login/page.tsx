@@ -68,21 +68,7 @@ export default function LoginPage() {
       return;
     }
 
-    // Sign in temporarily to get user ID and insert approval row
-    const { data: signInData, error: signInError } =
-      await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-    if (signInError) {
-      setError(
-        "Account created but could not complete setup. Please contact the administrator."
-      );
-      return;
-    }
-
-    const userId = signInData.user?.id;
+    const userId = signUpData.user?.id;
     if (userId) {
       // Insert approval request
       await supabase.from("user_approvals").insert({
@@ -114,8 +100,9 @@ export default function LoginPage() {
           <div className="text-4xl">&#9989;</div>
           <h1 className="text-xl font-bold">Account Created!</h1>
           <p className="text-slate-400">
-            Please wait for the administrator to approve your account before
-            signing in.
+            Your account has been submitted for review. The administrator will
+            review and approve your account shortly. You&apos;ll be able to sign
+            in once approved.
           </p>
           <button
             onClick={() => {
