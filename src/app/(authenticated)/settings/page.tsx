@@ -131,10 +131,6 @@ export default function SettingsPage() {
   const [enriching, setEnriching] = useState(false);
   const [enrichResult, setEnrichResult] = useState<{ enriched: number; errors: number; total: number; errorMsg?: string } | null>(null);
 
-  // Staff invite
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviting, setInviting] = useState(false);
-  const [inviteResult, setInviteResult] = useState("");
 
   async function handleAddSchool(e: React.FormEvent) {
     e.preventDefault();
@@ -217,25 +213,6 @@ export default function SettingsPage() {
       loan_duration_days: parseInt(loanDays) || 28,
     });
     setSaving(false);
-  }
-
-  async function handleInviteStaff(e: React.FormEvent) {
-    e.preventDefault();
-    if (!inviteEmail.trim()) return;
-    setInviting(true);
-    setInviteResult("");
-    try {
-      const { error } = await supabase.auth.admin.inviteUserByEmail(inviteEmail.trim());
-      if (error) {
-        setInviteResult(`Error: ${error.message}`);
-      } else {
-        setInviteResult(`Invitation sent to ${inviteEmail.trim()}`);
-        setInviteEmail("");
-      }
-    } catch {
-      setInviteResult("Error: Admin API not available. Invite users from the Supabase Dashboard.");
-    }
-    setInviting(false);
   }
 
   async function handleSignOut() {
@@ -444,24 +421,6 @@ export default function SettingsPage() {
         <button onClick={handleSaveSettings} disabled={saving} className="bg-blue-600 text-white rounded-lg px-4 py-2 hover:bg-blue-700 disabled:opacity-50">
           {saving ? "Saving..." : "Save Settings"}
         </button>
-      </section>
-
-      {/* Staff Management */}
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Staff</h2>
-        <form onSubmit={handleInviteStaff} className="flex gap-2">
-          <input
-            value={inviteEmail}
-            onChange={(e) => setInviteEmail(e.target.value)}
-            type="email"
-            placeholder="Invite staff by email"
-            className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 placeholder-slate-500 focus:border-blue-500 focus:outline-none"
-          />
-          <button type="submit" disabled={inviting} className="bg-blue-600 text-white rounded-lg px-3 py-2 hover:bg-blue-700 disabled:opacity-50">
-            {inviting ? "..." : "Invite"}
-          </button>
-        </form>
-        {inviteResult && <p className={`text-sm ${inviteResult.startsWith("Error") ? "text-red-400" : "text-emerald-400"}`}>{inviteResult}</p>}
       </section>
 
       {/* Sign Out */}
