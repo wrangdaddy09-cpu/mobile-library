@@ -78,7 +78,9 @@ Respond ONLY with valid JSON, no other text.`,
       });
     }
 
-    const metadata = JSON.parse(content);
+    // Strip markdown code fences if present (e.g. ```json ... ```)
+    const cleaned = content.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+    const metadata = JSON.parse(cleaned);
 
     const { error: updateError } = await supabase
       .from("books")
