@@ -109,9 +109,18 @@ export default function SettingsPage() {
   const [importResult, setImportResult] = useState<{ added: number; skipped: number; errors: string[] } | null>(null);
 
   // Settings
-  const [email, setEmail] = useState(settings?.reminder_email ?? "");
-  const [loanDays, setLoanDays] = useState(String(settings?.loan_duration_days ?? 28));
+  const [email, setEmail] = useState("");
+  const [loanDays, setLoanDays] = useState("28");
   const [saving, setSaving] = useState(false);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+
+  useEffect(() => {
+    if (settings && !settingsLoaded) {
+      setEmail(settings.reminder_email || "");
+      setLoanDays(String(settings.loan_duration_days ?? 28));
+      setSettingsLoaded(true);
+    }
+  }, [settings, settingsLoaded]);
 
   // AI Enrichment
   const [enriching, setEnriching] = useState(false);
