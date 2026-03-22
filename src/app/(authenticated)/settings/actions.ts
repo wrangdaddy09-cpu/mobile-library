@@ -1,5 +1,26 @@
 "use server";
 
+export async function enrichOneBook(bookId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const url = `${(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim()}/functions/v1/enrich-book`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim()}`,
+      },
+      body: JSON.stringify({ book_id: bookId }),
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      return { success: false, error: data.error || "Unknown error" };
+    }
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
+}
+
 export async function enrichAllBooks(): Promise<{
   enriched: number;
   errors: number;

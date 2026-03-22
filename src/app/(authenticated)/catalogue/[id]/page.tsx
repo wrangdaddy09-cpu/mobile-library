@@ -8,6 +8,7 @@ import { useSchools } from "@/lib/hooks/use-schools";
 import { useSettings } from "@/lib/hooks/use-settings";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { CheckoutRow } from "@/components/checkout-row";
+import { enrichOneBook } from "@/app/(authenticated)/settings/actions";
 
 export default function BookDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -25,6 +26,12 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
   const [editTitle, setEditTitle] = useState("");
   const [editAuthor, setEditAuthor] = useState("");
   const [editCopies, setEditCopies] = useState("");
+  const [editPublisher, setEditPublisher] = useState("");
+  const [editYear, setEditYear] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editGenres, setEditGenres] = useState("");
+  const [editThemes, setEditThemes] = useState("");
+  const [enrichingOne, setEnrichingOne] = useState(false);
 
   const [showCheckout, setShowCheckout] = useState(false);
   const [firstName, setFirstName] = useState("");
@@ -44,6 +51,11 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
     setEditTitle(book.title);
     setEditAuthor(book.author);
     setEditCopies(String(book.total_copies));
+    setEditPublisher(book.publisher || "");
+    setEditYear(book.year_published ? String(book.year_published) : "");
+    setEditDescription(book.description || "");
+    setEditGenres((book.genres || []).join(", "));
+    setEditThemes((book.themes || []).join(", "));
     setEditing(true);
   }
 
@@ -52,6 +64,11 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
       title: editTitle.trim(),
       author: editAuthor.trim(),
       total_copies: parseInt(editCopies) || 1,
+      publisher: editPublisher.trim() || null,
+      year_published: parseInt(editYear) || null,
+      description: editDescription.trim() || null,
+      genres: editGenres.split(",").map((g) => g.trim()).filter(Boolean),
+      themes: editThemes.split(",").map((t) => t.trim()).filter(Boolean),
     });
     setEditing(false);
   }
@@ -114,24 +131,21 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
             </div>
           )}
           {book.description && <p className="text-slate-400 text-sm">{book.description}</p>}
-          {!book.ai_enriched && (
+          {(!book.ai_enriched || !book.description) && (
             <div className="flex items-center gap-2">
-              <p className="text-amber-400 text-xs">Metadata not yet enriched by AI</p>
+              <p className="text-amber-400 text-xs">
+                {!book.ai_enriched ? "Metadata not yet enriched by AI" : "Missing some AI metadata"}
+              </p>
               <button
+                disabled={enrichingOne}
                 onClick={async () => {
-                  await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/enrich-book`, {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
-                    },
-                    body: JSON.stringify({ book_id: id }),
-                  });
+                  setEnrichingOne(true);
+                  await enrichOneBook(id);
                   window.location.reload();
                 }}
-                className="text-xs text-blue-400 hover:text-blue-300 underline"
+                className="text-xs text-blue-400 hover:text-blue-300 underline disabled:opacity-50"
               >
-                Retry
+                {enrichingOne ? "Enriching..." : "Enrich with AI"}
               </button>
             </div>
           )}
@@ -151,9 +165,40 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
         </div>
       ) : (
         <div className="space-y-3 bg-slate-900 border border-slate-800 rounded-xl p-4">
-          <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 focus:border-blue-500 focus:outline-none" />
-          <input value={editAuthor} onChange={(e) => setEditAuthor(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 focus:border-blue-500 focus:outline-none" />
-          <input type="number" value={editCopies} onChange={(e) => setEditCopies(e.target.value)} min="1" className="w-24 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 focus:border-blue-500 focus:outline-none" />
+          <div>
+            <label className="block text-xs text-slate-500 mb-1">Title</label>
+            <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 focus:border-blue-500 focus:outline-none" />
+          </div>
+          <div>
+            <label className="block text-xs text-slate-500 mb-1">Author</label>
+            <input value={editAuthor} onChange={(e) => setEditAuthor(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 focus:border-blue-500 focus:outline-none" />
+          </div>
+          <div className="flex gap-3">
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">Copies</label>
+              <input type="number" value={editCopies} onChange={(e) => setEditCopies(e.target.value)} min="1" className="w-24 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 focus:border-blue-500 focus:outline-none" />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">Year Published</label>
+              <input type="number" value={editYear} onChange={(e) => setEditYear(e.target.value)} className="w-24 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 focus:border-blue-500 focus:outline-none" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs text-slate-500 mb-1">Publisher</label>
+            <input value={editPublisher} onChange={(e) => setEditPublisher(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 focus:border-blue-500 focus:outline-none" />
+          </div>
+          <div>
+            <label className="block text-xs text-slate-500 mb-1">Description</label>
+            <textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} rows={3} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 focus:border-blue-500 focus:outline-none resize-none" />
+          </div>
+          <div>
+            <label className="block text-xs text-slate-500 mb-1">Genres (comma separated)</label>
+            <input value={editGenres} onChange={(e) => setEditGenres(e.target.value)} placeholder="e.g. Fiction, Adventure" className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 placeholder-slate-600 focus:border-blue-500 focus:outline-none" />
+          </div>
+          <div>
+            <label className="block text-xs text-slate-500 mb-1">Themes (comma separated)</label>
+            <input value={editThemes} onChange={(e) => setEditThemes(e.target.value)} placeholder="e.g. Friendship, Coming of age" className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 placeholder-slate-600 focus:border-blue-500 focus:outline-none" />
+          </div>
           <div className="flex gap-2">
             <button onClick={handleSaveEdit} className="bg-blue-600 text-white rounded-lg px-4 py-2 hover:bg-blue-700">Save</button>
             <button onClick={() => setEditing(false)} className="border border-slate-700 rounded-lg px-4 py-2 hover:bg-slate-800">Cancel</button>
