@@ -16,7 +16,7 @@ export function useSchools() {
       .select("*")
       .eq("archived", false)
       .order("name");
-    if (!error && data) setSchools(data);
+    if (!error && data) setSchools(data as School[]);
     setLoading(false);
   }, [supabase]);
 
@@ -27,11 +27,12 @@ export function useSchools() {
   async function addSchool(name: string) {
     const { data, error } = await supabase
       .from("schools")
-      .insert({ name })
+      .insert({ name } as any)
       .select()
       .single();
     if (!error && data) {
-      setSchools((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+      const newSchool = data as School;
+      setSchools((prev) => [...prev, newSchool].sort((a, b) => a.name.localeCompare(b.name)));
     }
     return { data, error };
   }
@@ -39,12 +40,12 @@ export function useSchools() {
   async function updateSchool(id: string, name: string) {
     const { data, error } = await supabase
       .from("schools")
-      .update({ name })
+      .update({ name } as any)
       .eq("id", id)
       .select()
       .single();
     if (!error && data) {
-      setSchools((prev) => prev.map((s) => (s.id === id ? data : s)));
+      setSchools((prev) => prev.map((s) => (s.id === id ? (data as School) : s)));
     }
     return { data, error };
   }
@@ -52,7 +53,7 @@ export function useSchools() {
   async function archiveSchool(id: string) {
     const { error } = await supabase
       .from("schools")
-      .update({ archived: true })
+      .update({ archived: true } as any)
       .eq("id", id);
     if (!error) {
       setSchools((prev) => prev.filter((s) => s.id !== id));

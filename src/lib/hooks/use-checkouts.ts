@@ -46,7 +46,7 @@ export function useCheckouts(options?: { bookId?: string; activeOnly?: boolean }
   }) {
     const { data, error } = await supabase
       .from("checkouts")
-      .insert(checkout)
+      .insert(checkout as any)
       .select("*, books(title, author), schools(name)")
       .single();
     if (!error && data) {
@@ -58,7 +58,7 @@ export function useCheckouts(options?: { bookId?: string; activeOnly?: boolean }
   async function returnBook(checkoutId: string) {
     const { data, error } = await supabase
       .from("checkouts")
-      .update({ returned_at: new Date().toISOString() })
+      .update({ returned_at: new Date().toISOString() } as any)
       .eq("id", checkoutId)
       .select("*, books(title, author), schools(name)")
       .single();

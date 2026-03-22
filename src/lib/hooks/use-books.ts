@@ -15,7 +15,7 @@ export function useBooks() {
       .from("books")
       .select("*")
       .order("title");
-    if (!error && data) setBooks(data);
+    if (!error && data) setBooks(data as Book[]);
     setLoading(false);
   }, [supabase]);
 
@@ -26,26 +26,28 @@ export function useBooks() {
   async function addBook(book: { title: string; author: string; total_copies?: number }) {
     const { data, error } = await supabase
       .from("books")
-      .insert(book)
+      .insert(book as any)
       .select()
       .single();
     if (!error && data) {
-      setBooks((prev) => [...prev, data].sort((a, b) => a.title.localeCompare(b.title)));
+      const newBook = data as Book;
+      setBooks((prev) => [...prev, newBook].sort((a, b) => a.title.localeCompare(b.title)));
     }
-    return { data, error };
+    return { data: data as Book | null, error };
   }
 
   async function updateBook(id: string, updates: Partial<Book>) {
     const { data, error } = await supabase
       .from("books")
-      .update(updates)
+      .update(updates as any)
       .eq("id", id)
       .select()
       .single();
     if (!error && data) {
-      setBooks((prev) => prev.map((b) => (b.id === id ? data : b)));
+      const updated = data as Book;
+      setBooks((prev) => prev.map((b) => (b.id === id ? updated : b)));
     }
-    return { data, error };
+    return { data: data as Book | null, error };
   }
 
   async function deleteBook(id: string) {

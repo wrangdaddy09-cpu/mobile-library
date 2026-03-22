@@ -15,7 +15,7 @@ export function useSettings() {
       .from("app_settings")
       .select("*")
       .single();
-    if (!error && data) setSettings(data);
+    if (!error && data) setSettings(data as AppSettings);
     setLoading(false);
   }, [supabase]);
 
@@ -27,11 +27,11 @@ export function useSettings() {
     if (!settings) return { error: new Error("No settings loaded") };
     const { data, error } = await supabase
       .from("app_settings")
-      .update(updates)
+      .update(updates as any)
       .eq("id", settings.id)
       .select()
       .single();
-    if (!error && data) setSettings(data);
+    if (!error && data) setSettings(data as AppSettings);
     return { data, error };
   }
 

@@ -45,14 +45,14 @@ export default function CataloguePage() {
       return;
     }
     // Trigger AI enrichment (non-blocking)
-    if (data && "id" in data) {
+    if (data) {
       fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/enrich-book`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
         },
-        body: JSON.stringify({ book_id: (data as { id: string }).id }),
+        body: JSON.stringify({ book_id: data.id }),
       }).catch(() => {});
     }
     setNewTitle("");
