@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { BottomNav } from "@/components/bottom-nav";
+import { AdminProvider } from "@/lib/admin-context";
 
 export default async function AuthenticatedLayout({
   children,
@@ -26,12 +27,15 @@ export default async function AuthenticatedLayout({
     redirect("/pending");
   }
 
-  // If no row exists (admin/pre-existing user) or approved === true, let them through
+  // Admin = user with no approval row (original/pre-existing user)
+  const isAdmin = !approval;
 
   return (
-    <div className="pb-16">
-      <main className="max-w-lg mx-auto px-4 py-4">{children}</main>
-      <BottomNav />
-    </div>
+    <AdminProvider isAdmin={isAdmin}>
+      <div className="pb-16">
+        <main className="max-w-lg mx-auto px-4 py-4">{children}</main>
+        <BottomNav />
+      </div>
+    </AdminProvider>
   );
 }

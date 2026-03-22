@@ -9,10 +9,12 @@ import { useSettings } from "@/lib/hooks/use-settings";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { CheckoutRow } from "@/components/checkout-row";
 import { enrichOneBook } from "@/app/(authenticated)/settings/actions";
+import { useIsAdmin } from "@/lib/admin-context";
 
 export default function BookDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
+  const isAdmin = useIsAdmin();
   const { books, updateBook, deleteBook } = useBooks();
   const { checkouts, checkoutBook, returnBook } = useCheckouts({ bookId: id });
   const { schools } = useSchools();
@@ -150,18 +152,20 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
             </div>
           )}
 
-          <div className="flex gap-2 pt-2">
-            <button onClick={startEdit} className="text-sm border border-slate-700 rounded-lg px-3 py-1.5 hover:bg-slate-800">
-              Edit
-            </button>
-            <button
-              onClick={() => setShowDelete(true)}
-              disabled={activeCheckouts.length > 0}
-              className="text-sm border border-red-800 text-red-400 rounded-lg px-3 py-1.5 hover:bg-red-900/30 disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              Delete
-            </button>
-          </div>
+          {isAdmin && (
+            <div className="flex gap-2 pt-2">
+              <button onClick={startEdit} className="text-sm border border-slate-700 rounded-lg px-3 py-1.5 hover:bg-slate-800">
+                Edit
+              </button>
+              <button
+                onClick={() => setShowDelete(true)}
+                disabled={activeCheckouts.length > 0}
+                className="text-sm border border-red-800 text-red-400 rounded-lg px-3 py-1.5 hover:bg-red-900/30 disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                Delete
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <div className="space-y-3 bg-slate-900 border border-slate-800 rounded-xl p-4">

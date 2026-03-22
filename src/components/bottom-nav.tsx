@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useIsAdmin } from "@/lib/admin-context";
 
-const tabs = [
-  { href: "/dashboard", label: "Home", icon: "home" },
-  { href: "/catalogue", label: "Catalogue", icon: "book" },
-  { href: "/checkouts", label: "Checkouts", icon: "clipboard" },
-  { href: "/settings", label: "Settings", icon: "settings" },
+const allTabs = [
+  { href: "/dashboard", label: "Home", icon: "home", adminOnly: false },
+  { href: "/catalogue", label: "Catalogue", icon: "book", adminOnly: false },
+  { href: "/checkouts", label: "Checkouts", icon: "clipboard", adminOnly: false },
+  { href: "/settings", label: "Settings", icon: "settings", adminOnly: true },
 ] as const;
 
 const icons: Record<string, (active: boolean) => React.ReactNode> = {
@@ -35,6 +36,8 @@ const icons: Record<string, (active: boolean) => React.ReactNode> = {
 
 export function BottomNav() {
   const pathname = usePathname();
+  const isAdmin = useIsAdmin();
+  const tabs = allTabs.filter((tab) => !tab.adminOnly || isAdmin);
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 safe-area-bottom z-50">

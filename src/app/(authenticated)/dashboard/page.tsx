@@ -5,9 +5,12 @@ import { useBooks } from "@/lib/hooks/use-books";
 import { useCheckouts, type CheckoutWithDetails } from "@/lib/hooks/use-checkouts";
 import { StatCard } from "@/components/stat-card";
 import { CheckoutRow } from "@/components/checkout-row";
+import { useIsAdmin } from "@/lib/admin-context";
+import { createClient } from "@/lib/supabase/client";
 
 export default function DashboardPage() {
   const { books } = useBooks();
+  const isAdmin = useIsAdmin();
   const { checkouts } = useCheckouts({ activeOnly: true });
 
   const stats = useMemo(() => {
@@ -74,6 +77,21 @@ export default function DashboardPage() {
 
       {checkouts.length === 0 && (
         <p className="text-slate-500 text-center py-8">No books currently checked out.</p>
+      )}
+
+      {!isAdmin && (
+        <div className="pt-4">
+          <button
+            onClick={async () => {
+              const supabase = createClient();
+              await supabase.auth.signOut();
+              window.location.href = "/login";
+            }}
+            className="text-red-400 text-sm hover:text-red-300"
+          >
+            Sign Out
+          </button>
+        </div>
       )}
     </div>
   );

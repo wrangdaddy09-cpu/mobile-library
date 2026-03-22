@@ -8,6 +8,8 @@ import { parseBooksCsv, parseBooksXlsx } from "@/lib/csv";
 import { createClient } from "@/lib/supabase/client";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { enrichAllBooks } from "./actions";
+import { useIsAdmin } from "@/lib/admin-context";
+import { useRouter } from "next/navigation";
 
 interface PendingUser {
   id: string;
@@ -17,6 +19,14 @@ interface PendingUser {
 }
 
 export default function SettingsPage() {
+  const isAdmin = useIsAdmin();
+  const router = useRouter();
+
+  // Redirect non-admins
+  if (!isAdmin) {
+    router.replace("/dashboard");
+    return null;
+  }
   const { schools, addSchool, updateSchool, archiveSchool } = useSchools();
   const { settings, updateSettings } = useSettings();
   const { books, addBook, fetchBooks } = useBooks();

@@ -6,8 +6,10 @@ import { useCheckouts } from "@/lib/hooks/use-checkouts";
 import { searchBooks } from "@/lib/search";
 import { BookCard } from "@/components/book-card";
 import { SearchInput } from "@/components/search-input";
+import { useIsAdmin } from "@/lib/admin-context";
 
 export default function CataloguePage() {
+  const isAdmin = useIsAdmin();
   const { books, addBook } = useBooks();
   const { checkouts } = useCheckouts({ activeOnly: true });
   const [query, setQuery] = useState("");
@@ -65,12 +67,14 @@ export default function CataloguePage() {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h1 className="text-xl font-bold">Catalogue</h1>
-        <button
-          onClick={() => setShowAdd(!showAdd)}
-          className="text-sm bg-blue-600 text-white rounded-lg px-3 py-1.5 hover:bg-blue-700"
-        >
-          + Add Book
-        </button>
+        {isAdmin && (
+          <button
+            onClick={() => setShowAdd(!showAdd)}
+            className="text-sm bg-blue-600 text-white rounded-lg px-3 py-1.5 hover:bg-blue-700"
+          >
+            + Add Book
+          </button>
+        )}
       </div>
 
       {showAdd && (
