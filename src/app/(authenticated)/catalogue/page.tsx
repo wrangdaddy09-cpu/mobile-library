@@ -46,12 +46,9 @@ export default function CataloguePage() {
     }
     // Trigger AI enrichment (non-blocking)
     if (data) {
-      fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/enrich-book`, {
+      fetch("/api/enrich-book", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ book_id: data.id }),
       }).catch(() => {});
     }

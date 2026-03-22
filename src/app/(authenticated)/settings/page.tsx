@@ -159,12 +159,9 @@ export default function SettingsPage() {
 
     for (const book of unenriched) {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/enrich-book`, {
+        const res = await fetch("/api/enrich-book", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ book_id: book.id }),
         });
         if (!res.ok) {
@@ -180,6 +177,10 @@ export default function SettingsPage() {
       }
       done++;
       setEnrichProgress({ done, total: unenriched.length, errors, firstError });
+      // Small delay to avoid rate limiting
+      if (done < unenriched.length) {
+        await new Promise((r) => setTimeout(r, 500));
+      }
     }
 
     setEnriching(false);
