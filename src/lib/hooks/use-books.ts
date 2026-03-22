@@ -23,7 +23,7 @@ export function useBooks() {
     fetchBooks();
   }, [fetchBooks]);
 
-  async function addBook(book: { title: string; author: string; total_copies?: number }) {
+  async function addBook(book: { title: string; author: string; total_copies?: number; publisher?: string }) {
     const { data, error } = await supabase
       .from("books")
       .insert(book)
