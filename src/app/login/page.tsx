@@ -12,6 +12,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [signupSuccess, setSignupSuccess] = useState(false);
+  const [forgotMode, setForgotMode] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
@@ -42,6 +44,24 @@ export default function LoginPage() {
 
     router.push("/dashboard");
     router.refresh();
+  }
+
+  async function handleForgotPassword(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+    });
+
+    if (error) {
+      setError(error.message);
+    } else {
+      setResetSent(true);
+    }
+
+    setLoading(false);
   }
 
   async function handleSignup() {
@@ -93,6 +113,30 @@ export default function LoginPage() {
     setSignupSuccess(true);
   }
 
+  if (resetSent) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-4">
+        <div className="w-full max-w-sm space-y-4 text-center">
+          <div className="text-4xl">&#9993;</div>
+          <h1 className="text-xl font-bold">Check Your Email</h1>
+          <p className="text-slate-400">
+            If an account exists for {email}, you&apos;ll receive a password
+            reset link shortly.
+          </p>
+          <button
+            onClick={() => {
+              setResetSent(false);
+              setForgotMode(false);
+            }}
+            className="text-blue-400 text-sm hover:text-blue-300"
+          >
+            Back to Sign In
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (signupSuccess) {
     return (
       <div className="flex min-h-screen items-center justify-center p-4">
@@ -126,12 +170,16 @@ export default function LoginPage() {
         <div className="text-center">
           <h1 className="text-2xl font-bold">Mobile Library</h1>
           <p className="text-slate-400 mt-1">
-            {mode === "signin" ? "Sign in to continue" : "Create an account"}
+            {forgotMode
+              ? "Enter your email to reset your password"
+              : mode === "signin"
+                ? "Sign in to continue"
+                : "Create an account"}
           </p>
         </div>
 
         {/* Mode toggle */}
-        <div className="flex rounded-lg border border-slate-700 overflow-hidden">
+        {!forgotMode && <div className="flex rounded-lg border border-slate-700 overflow-hidden">
           <button
             type="button"
             onClick={() => {
@@ -160,9 +208,9 @@ export default function LoginPage() {
           >
             Sign Up
           </button>
-        </div>
+        </div>}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={forgotMode ? handleForgotPassword : handleSubmit} className="space-y-4">
           {error && (
             <div className="bg-red-900/50 border border-red-700 text-red-200 rounded-lg p-3 text-sm">
               {error}
@@ -187,42 +235,59 @@ export default function LoginPage() {
             />
           </div>
 
-          <div>
-            <label
-              htmlFor="password"
-              className="block text-sm text-slate-400 mb-1"
-            >
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 placeholder-slate-500 focus:border-blue-500 focus:outline-none"
-              placeholder="Your password"
-            />
-          </div>
+          {!forgotMode && (
+            <>
+              <div>
+                <label
+                  htmlFor="password"
+                  className="block text-sm text-slate-400 mb-1"
+                >
+                  Password
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 placeholder-slate-500 focus:border-blue-500 focus:outline-none"
+                  placeholder="Your password"
+                />
+              </div>
 
-          {mode === "signup" && (
-            <div>
-              <label
-                htmlFor="confirmPassword"
-                className="block text-sm text-slate-400 mb-1"
-              >
-                Confirm Password
-              </label>
-              <input
-                id="confirmPassword"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 placeholder-slate-500 focus:border-blue-500 focus:outline-none"
-                placeholder="Confirm your password"
-              />
-            </div>
+              {mode === "signin" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForgotMode(true);
+                    setError("");
+                  }}
+                  className="text-blue-400 text-sm hover:text-blue-300"
+                >
+                  Forgot password?
+                </button>
+              )}
+
+              {mode === "signup" && (
+                <div>
+                  <label
+                    htmlFor="confirmPassword"
+                    className="block text-sm text-slate-400 mb-1"
+                  >
+                    Confirm Password
+                  </label>
+                  <input
+                    id="confirmPassword"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 placeholder-slate-500 focus:border-blue-500 focus:outline-none"
+                    placeholder="Confirm your password"
+                  />
+                </div>
+              )}
+            </>
           )}
 
           <button
@@ -230,14 +295,31 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading
-              ? mode === "signin"
-                ? "Signing in..."
-                : "Creating account..."
-              : mode === "signin"
-                ? "Sign In"
-                : "Sign Up"}
+            {forgotMode
+              ? loading
+                ? "Sending..."
+                : "Send Reset Link"
+              : loading
+                ? mode === "signin"
+                  ? "Signing in..."
+                  : "Creating account..."
+                : mode === "signin"
+                  ? "Sign In"
+                  : "Sign Up"}
           </button>
+
+          {forgotMode && (
+            <button
+              type="button"
+              onClick={() => {
+                setForgotMode(false);
+                setError("");
+              }}
+              className="w-full text-blue-400 text-sm hover:text-blue-300"
+            >
+              Back to Sign In
+            </button>
+          )}
         </form>
       </div>
     </div>
