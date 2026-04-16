@@ -8,11 +8,13 @@ import { BookCard } from "@/components/book-card";
 import { SearchInput } from "@/components/search-input";
 import { useIsAdmin } from "@/lib/admin-context";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { exportLibraryToExcel } from "@/lib/csv";
 
 export default function CataloguePage() {
   const isAdmin = useIsAdmin();
   const { books, addBook, deleteBooks } = useBooks();
   const { checkouts } = useCheckouts({ activeOnly: true });
+  const { checkouts: allCheckouts } = useCheckouts();
   const [query, setQuery] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [newTitle, setNewTitle] = useState("");
@@ -128,6 +130,12 @@ export default function CataloguePage() {
                   className="text-sm border border-slate-700 text-slate-300 rounded-lg px-3 py-1.5 hover:bg-slate-800"
                 >
                   Select
+                </button>
+                <button
+                  onClick={() => exportLibraryToExcel(books, allCheckouts)}
+                  className="text-sm border border-slate-700 text-slate-300 rounded-lg px-3 py-1.5 hover:bg-slate-800"
+                >
+                  Export
                 </button>
                 <button
                   onClick={() => setShowAdd(!showAdd)}

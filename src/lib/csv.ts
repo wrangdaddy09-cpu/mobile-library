@@ -1,4 +1,6 @@
 import * as XLSX from "xlsx";
+import type { Book } from "@/lib/supabase/types";
+import type { CheckoutWithDetails } from "@/lib/hooks/use-checkouts";
 
 type ParsedBook = {
   title: string;
@@ -138,4 +140,35 @@ export function parseBooksXlsx(buffer: ArrayBuffer): ParseResult {
   }
 
   return { books, errors };
+}
+
+export function exportLibraryToExcel(books: Book[], checkouts: CheckoutWithDetails[]) {
+  const bookRows = books.map((b) => ({
+    Title: b.title,
+    Author: b.author,
+    Copies: b.total_copies,
+    Publisher: b.publisher || "",
+    "Year Published": b.year_published || "",
+    Genres: (b.genres || []).join(", "),
+    Themes: (b.themes || []).join(", "),
+    Description: b.description || "",
+  }));
+
+  const checkoutRows = checkouts.map((c) => ({
+    "Book Title": c.books?.title || "Unknown",
+    "Book Author": c.books?.author || "Unknown",
+    "Borrower First Name": c.borrower_first_name,
+    "Borrower Initial": c.borrower_surname_initial,
+    School: c.schools?.name || "Unknown",
+    "Checked Out": c.checked_out_at ? new Date(c.checked_out_at).toLocaleDateString() : "",
+    "Due Date": c.due_at ? new Date(c.due_at).toLocaleDateString() : "",
+    "Returned": c.returned_at ? new Date(c.returned_at).toLocaleDateString() : "",
+  }));
+
+  const wb = XLSX.utils.book_new();
+  const booksSheet = XLSX.utils.json_to_sheet(bookRows);
+  const checkoutsSheet = XLSX.utils.json_to_sheet(checkoutRows);
+  XLSX.utils.book_append_sheet(wb, booksSheet, "Books");
+  XLSX.utils.book_append_sheet(wb, checkoutsSheet, "Checkouts");
+  XLSX.writeFile(wb, `mobile-library-export-${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
