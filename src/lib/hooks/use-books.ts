@@ -58,5 +58,13 @@ export function useBooks() {
     return { error };
   }
 
-  return { books, loading, fetchBooks, addBook, updateBook, deleteBook };
+  async function deleteBooks(ids: string[]) {
+    const { error } = await supabase.from("books").delete().in("id", ids);
+    if (!error) {
+      setBooks((prev) => prev.filter((b) => !ids.includes(b.id)));
+    }
+    return { error };
+  }
+
+  return { books, loading, fetchBooks, addBook, updateBook, deleteBook, deleteBooks };
 }
